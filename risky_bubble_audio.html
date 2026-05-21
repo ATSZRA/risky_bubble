@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Risky Bubble</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#10131c;color:#f7f7fb;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+body{display:grid;place-items:center;padding:18px}
+.shell{width:min(1180px,100%)}
+h1{margin:0 0 6px;font-size:clamp(30px,5vw,60px);letter-spacing:.04em}
+.sub{margin:0 0 12px;color:#d2dafc;line-height:1.55;font-weight:700}
+.hud{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.panel{background:#1d2435;border:1px solid #52607f;border-radius:14px;padding:10px 12px;box-shadow:0 10px 24px #0005}
+.label{font-size:12px;color:#aeb9dc;font-weight:900}
+.value{font-size:22px;color:#ffe083;font-weight:1000}
+#stage{
+  position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:22px;border:2px solid #52607f;
+  background:#1b2437 center/cover no-repeat url('background.png');
+  box-shadow:0 25px 70px #0008;user-select:none;
+}
+#stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0a102055 0%,#0a102010 40%,#09111f66 100%);pointer-events:none;z-index:0}
+.floor{position:absolute;left:0;right:0;bottom:0;height:24%;background:linear-gradient(180deg,#1f2432aa,#121722dd);z-index:0}
+.character{position:absolute;bottom:7%;width:30%;max-width:330px;z-index:1;filter:drop-shadow(0 10px 15px #0008)}
+.character img{width:100%;height:auto;display:block;object-fit:contain}
+#c1{left:3%}
+#c2{right:3%}
+.namePlate{position:absolute;bottom:5%;padding:6px 12px;border-radius:999px;background:#000b;border:1px solid #ffffff55;font-size:13px;font-weight:900;z-index:1}
+#n1{left:8%} #n2{right:8%}
+.bubble{
+  position:absolute;min-width:180px;max-width:min(420px,76%);padding:14px 16px;border-radius:26px;background:#fff;color:#171717;
+  border:4px solid #111;box-shadow:0 12px 24px #0005;line-height:1.45;font-size:clamp(16px,2vw,24px);font-weight:900;
+  cursor:pointer;z-index:3;animation:pop .14s ease-out;
+}
+.bubble::before{content:"";position:absolute;bottom:-20px;width:0;height:0;border-top:20px solid #111;border-left:14px solid transparent;border-right:14px solid transparent}
+.bubble::after{content:"";position:absolute;bottom:-14px;width:0;height:0;border-top:16px solid #fff;border-left:11px solid transparent;border-right:11px solid transparent}
+.fromLeft::before{left:36px}.fromLeft::after{left:39px}.fromRight::before{right:36px}.fromRight::after{right:39px}
+.clickedGood{background:#ffe4e4;border-color:#d62b2b}
+.clickedBad{background:#e5efff;border-color:#2a72d9}
+.missedBubble{background:#fff2c9;border-color:#d89a24}
+@keyframes pop{from{transform:scale(.85);opacity:.15}to{transform:scale(1);opacity:1}}
+#toast{position:absolute;left:50%;top:6%;transform:translateX(-50%);z-index:8;width:min(760px,92%);padding:12px 18px;border-radius:18px;background:#000d;border:1px solid #ffffff55;color:#fff;font-weight:900;line-height:1.45;opacity:0;pointer-events:none;transition:.16s;text-align:center}
+#toast.show{opacity:1;top:8%}
+#comboBadge{position:absolute;right:18px;top:18px;z-index:8;background:#ffdf83;color:#17120a;border-radius:999px;padding:8px 14px;font-weight:1000;box-shadow:0 8px 18px #0007;opacity:0;transform:translateY(-8px);transition:.18s}
+#comboBadge.show{opacity:1;transform:translateY(0)}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;z-index:10;padding:24px;background:#080b12cc;backdrop-filter:blur(3px)}
+.hidden{display:none}
+.modal{width:min(840px,96%);border-radius:26px;border:2px solid #ffe083;background:linear-gradient(180deg,#253252,#111827);padding:24px;box-shadow:0 25px 80px #0009;text-align:center}
+.modal h2{margin:0 0 10px;font-size:clamp(28px,5vw,56px);color:#ffe083}
+.modal p{line-height:1.65;font-weight:750}
+button{border:0;border-radius:999px;padding:11px 18px;font-weight:950;cursor:pointer;background:#ffe083;color:#16120a;box-shadow:0 9px 20px #0007}
+button:hover{filter:brightness(1.08)}
+.resultList{margin:14px auto 0;max-height:280px;overflow:auto;text-align:left;background:#0c111d;border:1px solid #52607f;border-radius:16px;padding:12px}
+.resultItem{padding:9px 10px;border-bottom:1px solid #52607f66;line-height:1.5}.resultItem:last-child{border-bottom:0}
+.tag{display:inline-block;margin-right:6px;padding:2px 7px;border-radius:999px;font-size:12px;font-weight:900;background:#ffe083;color:#19150b}
+.small{font-size:13px;color:#cfd6ff}
+#rewardCard{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:18px;align-items:center;text-align:left;margin-top:14px}
+#rewardCard img{width:100%;border-radius:18px;border:2px solid #ffe083;background:#0c111d;display:block}
+.rewardTitle{font-size:clamp(22px,4vw,34px);font-weight:1000;color:#ffe083;margin-bottom:8px}
+.note{margin-top:10px;color:#cfd6ff;line-height:1.6;font-size:13px}
+@media(max-width:900px){.hud{grid-template-columns:repeat(3,minmax(0,1fr))}.value{font-size:18px}.character{width:28%}}
+@media(max-width:700px){body{padding:10px}.hud{grid-template-columns:repeat(2,minmax(0,1fr))}.character{display:none}.namePlate{display:none}.bubble{max-width:84%;min-width:0}.fromLeft{left:8%!important}.fromRight{right:8%!important}#rewardCard{grid-template-columns:1fr;text-align:center}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <h1>Risky Bubble</h1>
+  <div class="sub">次々に現れるバブルから、法的に危険な台詞だけを拾って消していく面クリア型ゲーム。危険を見抜いて、労働基準法の護り手になれ。</div>
+
+  <div class="hud">
+    <div class="panel"><div class="label">STAGE</div><div class="value"><span id="stageNo">1</span>/3</div></div>
+    <div class="panel"><div class="label">TARGET</div><div class="value"><span id="targetCount">0</span></div></div>
+    <div class="panel"><div class="label">FOUND</div><div class="value"><span id="found">0</span></div></div>
+    <div class="panel"><div class="label">MISS</div><div class="value"><span id="miss">0</span>/4</div></div>
+    <div class="panel"><div class="label">MISSED</div><div class="value"><span id="missed">0</span></div></div>
+    <div class="panel"><div class="label">TIME</div><div class="value"><span id="time">50</span>s</div></div>
+    <div class="panel"><div class="label">STATUS</div><div class="value" id="status">待機中</div></div>
+  </div>
+
+  <div id="stage">
+    <div class="floor"></div>
+    <div class="character" id="c1"><img src="character1.png" alt="character1"></div>
+    <div class="character" id="c2"><img src="character2.png" alt="character2"></div>
+    <div class="namePlate" id="n1">職場の人A</div>
+    <div class="namePlate" id="n2">職場の人B</div>
+    <div id="toast"></div>
+    <div id="comboBadge">3 COMBO!</div>
+
+    <!-- 音声ファイルはこのHTMLと同じフォルダに置く想定 -->
+    <audio id="bgm" src="bgm.mp3" loop preload="auto"></audio>
+    <audio id="correctSe" src="correct.mp3" preload="auto"></audio>
+    <audio id="wrongSe" src="wrong.mp3" preload="auto"></audio>
+    <audio id="stageClearSe" src="stage_clear.mp3" preload="auto"></audio>
+    <audio id="completeSe" src="complete.mp3" preload="auto"></audio>
+
+    <div id="startOverlay" class="overlay">
+      <div class="modal">
+        <h2>ゲーム開始</h2>
+        <p>危険な台詞をクリックして消していこう。<br>セーフな台詞を押すとミス、危険な台詞を見逃すと見逃しになる。<br><strong>各ステージの危険バブル目標数を達成すると面クリア。</strong></p>
+        <button id="startBtn">START</button>
+        <div class="note">※ 同じフォルダに <strong>background.png / character1.png / character2.png / reward.png</strong> を置くと、外部画像が自動で読み込まれる。</div>
+      </div>
+    </div>
+
+    <div id="stageClearOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2 id="stageClearTitle">STAGE CLEAR</h2>
+        <p id="stageClearSummary">危険バブルを見抜いた。</p>
+        <button id="nextStageBtn">次のステージへ</button>
+      </div>
+    </div>
+
+    <div id="gameOverOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2>GAME OVER</h2>
+        <p id="gameOverSummary">見逃しと誤判定が重なり、ステージ攻略に失敗した。</p>
+        <button class="retryBtn">もう一度</button>
+        <div class="resultList" id="gameOverList"></div>
+      </div>
+    </div>
+
+    <div id="rewardOverlay" class="overlay hidden">
+      <div class="modal">
+        <h2>ALL CLEAR</h2>
+        <p>すべてのステージを突破。<br>君は <strong>労働基準法の護り手</strong> だ。</p>
+        <div id="rewardCard">
+          <img src="reward.png" alt="reward">
+          <div>
+            <div class="rewardTitle">称号：労働基準法の護り手</div>
+            <p>危険な会話の中から、法的に見逃せない台詞を拾い続けた。<br>違和感を感じ取る力こそ、コンプライアンスの第一歩だ。</p>
+            <div class="small">クリア後は reward.png を差し替えるだけで、ご褒美画面の雰囲気を変えられる。</div>
+          </div>
+        </div>
+        <div class="resultList" id="rewardList"></div>
+        <button class="retryBtn">最初から</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const QUESTION_POOL = [
+  {text:'店長「残業代？ うちは固定給だから、残業しても追加はないよ」',risk:true,category:'賃金',explanation:'固定給であることだけを理由に割増賃金を支払わない運用は、問題となる可能性があります。'},
+  {text:'上司「今日は18時で打刻して、その後は自主的に少し手伝って」',risk:true,category:'労働時間',explanation:'打刻後の業務は隠れ残業として問題になり得ます。'},
+  {text:'先輩「朝礼は始業10分前だけど、参加は当然だよ」',risk:true,category:'労働時間',explanation:'参加が事実上義務なら始業前でも労働時間に当たる可能性があります。'},
+  {text:'上司「今日は休憩をまだ取れていない人から順に入ってください」',risk:false,category:'休憩管理',explanation:'休憩取得を調整する発言であり、通常は適切な労務管理です。'},
+  {text:'人事「36協定の範囲を確認して、今月の残業時間を管理しましょう」',risk:false,category:'労働時間管理',explanation:'協定範囲の確認は適正な労務管理の方向です。'},
+  {text:'店長「制服代は初任給から引いておくから。説明は後でいいよね」',risk:true,category:'賃金控除',explanation:'賃金控除には法的根拠や合意関係が問題となります。'},
+  {text:'上司「有給？ 今月は忙しいから絶対に無理」',risk:true,category:'年休',explanation:'年休取得を一律に拒否する運用は問題です。'},
+  {text:'人事「年5日の年休取得状況を確認しましょう」',risk:false,category:'年休管理',explanation:'年休取得義務の管理は適正な労務管理です。'},
+  {text:'先輩「有給を使うなら理由を詳しく書かないと通らないよ」',risk:true,category:'年休',explanation:'取得理由の詳細説明を事実上要求する運用は問題となり得ます。'},
+  {text:'店長「休日だけど、LINEで売上報告だけして。仕事じゃないから」',risk:true,category:'休日労働',explanation:'休日でも業務指示に基づく対応なら労働時間性が問題になります。'},
+  {text:'上司「辞めたいなら、代わりを見つけてからにして」',risk:true,category:'退職',explanation:'退職の自由を不当に制約する趣旨に受け取られかねません。'},
+  {text:'人事「退職の申出を受けたので、最終出勤日と引継ぎを確認しましょう」',risk:false,category:'退職手続',explanation:'退職申出後の実務調整として通常の対応です。'},
+  {text:'店長「試用期間中だから、今日で終わり。解雇じゃないから手続はいらない」',risk:true,category:'試用期間',explanation:'試用期間中でも契約関係があり、終了には法的評価が問題になります。'},
+  {text:'上司「男なんだから、それくらいやれよ」',risk:true,category:'ジェンダー',explanation:'性別に基づく役割期待を押し付ける発言で、問題になり得ます。'},
+  {text:'先輩「そういう冗談も通じないタイプ？」',risk:true,category:'ハラスメント',explanation:'不快感を示した相手を揶揄する発言で、職場環境を悪化させる可能性があります。'},
+  {text:'上司「最近元気がないように見えるけど、大丈夫？」',risk:false,category:'配慮',explanation:'体調を気遣う声かけ自体は直ちに問題とは限りません。'},
+  {text:'上司「何回言えば分かるの？ 君は本当に使えないね」',risk:true,category:'パワハラ',explanation:'人格を否定するような表現は、業務指導の範囲を超える可能性があります。'},
+  {text:'上司「次回から、作業前に確認してもらえれば大丈夫です」',risk:false,category:'業務指導',explanation:'具体的な改善方法を示す指導であり、通常は適正な方向です。'},
+  {text:'社員「まだ結婚してないの？ そろそろ考えたら？」',risk:true,category:'私生活干渉',explanation:'結婚など私生活に踏み込む発言は相手に圧力を与える可能性があります。'},
+  {text:'上司「妊娠したなら、この部署は厳しいんじゃない？」',risk:true,category:'妊娠・育児',explanation:'妊娠を理由に職務適性を決めつける発言は重大なリスクがあります。'},
+  {text:'人事「育休制度について説明します。希望があれば相談してください」',risk:false,category:'制度案内',explanation:'制度利用を支援する説明であり、通常は望ましい対応です。'},
+  {text:'現場長「保護具は暑いから、今日は外してもいいよ」',risk:true,category:'安全衛生',explanation:'必要な保護具を外させる運用は安全衛生上重大なリスクがあります。'},
+  {text:'上司「危険箇所を見つけたら、作業を止めて報告してください」',risk:false,category:'安全衛生',explanation:'危険時の作業停止・報告を促すのは望ましい対応です。'},
+  {text:'上司「通報したの君だよね？ 正直に言えば評価は考えてあげる」',risk:true,category:'公益通報',explanation:'通報者探しや評価への示唆は、強いリスクがあります。'},
+  {text:'窓口「通報内容は必要な範囲で確認し、秘密保持に配慮します」',risk:false,category:'公益通報',explanation:'秘密保持に配慮するのは適切な対応です。'},
+  {text:'上司「パートだから有給はないよ」',risk:true,category:'年休・非正規',explanation:'パートタイム労働者でも要件を満たせば年休が発生します。'},
+  {text:'面接官「業務上必要な勤務時間帯について確認してもよいですか？」',risk:false,category:'採用',explanation:'業務遂行に必要な勤務条件を確認すること自体は通常許容される方向です。'},
+  {text:'面接官「結婚や出産の予定はありますか？」',risk:true,category:'採用・私生活',explanation:'私生活や出産予定を尋ねることは問題となり得ます。'}
+];
+const STAGES = [
+  {name:'STAGE 1', questionCount:10, targetRatio:0.65, time:50},
+  {name:'STAGE 2', questionCount:12, targetRatio:0.70, time:55},
+  {name:'FINAL STAGE', questionCount:14, targetRatio:0.75, time:60}
+];
+let stageIndex = 0, queue = [], running = false, activeBubble = null, countdownTimer = null;
+let found = 0, miss = 0, missed = 0, shown = 0, combo = 0, maxCombo = 0, targetCount = 0, timeLeft = 0;
+let stageLogs = [], allLogs = [];
+
+const el = id => document.getElementById(id);
+const stageEl = el('stage');
+const foundEl = el('found'), missEl = el('miss'), missedEl = el('missed'), timeEl = el('time'), statusEl = el('status');
+const stageNoEl = el('stageNo'), targetCountEl = el('targetCount');
+const toast = el('toast'), comboBadge = el('comboBadge');
+const bgm = el('bgm'), correctSe = el('correctSe'), wrongSe = el('wrongSe'), stageClearSe = el('stageClearSe'), completeSe = el('completeSe');
+const startOverlay = el('startOverlay'), stageClearOverlay = el('stageClearOverlay'), gameOverOverlay = el('gameOverOverlay'), rewardOverlay = el('rewardOverlay');
+
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showToast(html){ toast.innerHTML = html; toast.classList.add('show'); clearTimeout(showToast.t); showToast.t = setTimeout(()=>toast.classList.remove('show'),1300); }
+function updateHud(){ stageNoEl.textContent = stageIndex + 1; foundEl.textContent = found; missEl.textContent = miss; missedEl.textContent = missed; timeEl.textContent = timeLeft; targetCountEl.textContent = `${found}/${targetCount}`; }
+function showCombo(){ if(combo >= 3){ comboBadge.textContent = combo >= 8 ? 'RISK HUNTER!' : combo >= 5 ? `${combo} COMBO!` : '3 COMBO!'; comboBadge.classList.add('show'); clearTimeout(showCombo.t); showCombo.t = setTimeout(()=>comboBadge.classList.remove('show'),850); } }
+
+function playSound(audio, volume=1){
+  if(!audio) return;
+  try{
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = volume;
+    audio.play().catch(()=>{});
+  }catch(e){}
+}
+function startBgm(){
+  if(!bgm) return;
+  try{
+    bgm.volume = 0.28;
+    bgm.currentTime = 0;
+    bgm.play().catch(()=>{});
+  }catch(e){}
+}
+function stopBgm(){
+  if(!bgm) return;
+  try{
+    bgm.pause();
+    bgm.currentTime = 0;
+  }catch(e){}
+}
+function clearBubble(){ if(activeBubble){ activeBubble.remove(); activeBubble = null; } }
+function stageSetup(){
+  const config = STAGES[stageIndex];
+  queue = shuffle(QUESTION_POOL).slice(0, config.questionCount);
+  targetCount = Math.ceil(queue.filter(q=>q.risk).length * config.targetRatio);
+  if(targetCount < 3) targetCount = Math.min(3, queue.filter(q=>q.risk).length);
+  found = 0; miss = 0; missed = 0; shown = 0; combo = 0; maxCombo = 0; stageLogs = []; timeLeft = config.time;
+  statusEl.textContent = config.name;
+  updateHud();
+}
+function startStage(){
+  running = true;
+  startBgm();
+  stageSetup();
+  startOverlay.classList.add('hidden');
+  stageClearOverlay.classList.add('hidden');
+  gameOverOverlay.classList.add('hidden');
+  rewardOverlay.classList.add('hidden');
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(()=>{ if(!running) return; timeLeft--; updateHud(); if(timeLeft <= 0) finishStage(); },1000);
+  spawnBubble();
+}
+function spawnBubble(){
+  if(!running) return;
+  clearBubble();
+  if(queue.length === 0){ finishStage(); return; }
+  const data = queue.shift();
+  shown++;
+  const b = document.createElement('div');
+  const leftSide = Math.random() < .5;
+  b.className = 'bubble ' + (leftSide ? 'fromLeft' : 'fromRight');
+  b.textContent = data.text;
+  b.dataset.done = '0';
+  const pos = leftSide ? [{left:'22%',top:'14%'},{left:'30%',top:'26%'},{left:'15%',top:'39%'}] : [{right:'22%',top:'14%'},{right:'30%',top:'26%'},{right:'15%',top:'39%'}];
+  Object.assign(b.style, pos[Math.floor(Math.random()*pos.length)]);
+  b.addEventListener('click', ()=>{
+    if(!running || b.dataset.done === '1') return;
+    b.dataset.done = '1';
+    if(data.risk){
+      found++; combo++; if(combo > maxCombo) maxCombo = combo; b.classList.add('clickedGood');
+      playSound(correctSe, 0.65);
+      stageLogs.push({type:'found', data});
+      showToast(`<strong>RISK DETECTED!</strong><br>${esc(data.category)}：${esc(data.explanation)}`);
+      showCombo(); updateHud();
+      setTimeout(()=>{ if(found >= targetCount) finishStage(); else spawnBubble(); }, 850);
+    }else{
+      miss++; combo = 0; b.classList.add('clickedBad');
+      playSound(wrongSe, 0.7);
+      stageLogs.push({type:'wrong', data});
+      showToast('<strong>SAFE</strong><br>これは直ちに危険とは限らない。');
+      updateHud();
+      if(miss >= 4){ setTimeout(gameOver, 650); } else { setTimeout(spawnBubble, 820); }
+    }
+  });
+  stageEl.appendChild(b); activeBubble = b;
+  const displayMs = 3100 + Math.random()*1400;
+  setTimeout(()=>{
+    if(!running || activeBubble !== b || b.dataset.done === '1') return;
+    if(data.risk){
+      missed++; combo = 0; b.classList.add('missedBubble');
+      playSound(wrongSe, 0.55);
+      stageLogs.push({type:'missed', data});
+      showToast(`<strong>MISSED RISK</strong><br>${esc(data.category)}：見逃しに注意。`);
+      updateHud();
+      if(miss + missed >= 5){ setTimeout(gameOver, 700); }
+      else setTimeout(spawnBubble, 820);
+    }else{
+      stageLogs.push({type:'safe', data});
+      spawnBubble();
+    }
+  }, displayMs);
+}
+function finishStage(){
+  if(!running) return;
+  running = false; clearInterval(countdownTimer); clearBubble();
+  const clear = found >= targetCount;
+  allLogs.push({stage: stageIndex + 1, found, miss, missed, targetCount, maxCombo, clear, logs:[...stageLogs]});
+  if(!clear){ gameOver(); return; }
+  if(stageIndex < STAGES.length - 1){
+    playSound(stageClearSe, 0.75);
+    el('stageClearTitle').textContent = `${STAGES[stageIndex].name} CLEAR`;
+    el('stageClearSummary').innerHTML = `危険バブルを <strong>${found}/${targetCount}</strong> 検出。<br>最大コンボ <strong>${maxCombo}</strong>。`;
+    stageClearOverlay.classList.remove('hidden');
+  }else{
+    showReward();
+  }
+}
+function gameOver(){
+  running = false; clearInterval(countdownTimer); clearBubble();
+  stopBgm();
+  playSound(wrongSe, 0.75);
+  el('gameOverSummary').innerHTML = `ステージ ${stageIndex + 1} で失敗。<br>FOUND <strong>${found}</strong> / TARGET <strong>${targetCount}</strong> / MISS <strong>${miss}</strong> / MISSED <strong>${missed}</strong>`;
+  const important = stageLogs.filter(x=>x.type!=='safe');
+  el('gameOverList').innerHTML = important.map(r=>{
+    const label = r.type === 'found' ? '発見' : r.type === 'missed' ? '見逃し' : '誤判定';
+    const icon = r.type === 'found' ? '✅' : r.type === 'missed' ? '⚠️' : '❌';
+    return `<div class="resultItem"><span class="tag">${icon} ${label}</span><strong>${esc(r.data.text)}</strong><br><span class="small">${esc(r.data.category)}：${esc(r.data.explanation)}</span></div>`;
+  }).join('') || '<div class="resultItem">記録なし。</div>';
+  gameOverOverlay.classList.remove('hidden');
+}
+function showReward(){
+  stopBgm();
+  playSound(completeSe, 0.85);
+  rewardOverlay.classList.remove('hidden');
+  const summary = allLogs.map(s=>`<div class="resultItem"><span class="tag">STAGE ${s.stage}</span><strong>${s.clear ? 'CLEAR' : 'FAILED'}</strong><br><span class="small">FOUND ${s.found}/${s.targetCount}・MISS ${s.miss}・MISSED ${s.missed}・MAX COMBO ${s.maxCombo}</span></div>`).join('');
+  el('rewardList').innerHTML = summary;
+}
+function resetGame(){
+  running = false; clearInterval(countdownTimer); clearBubble();
+  stopBgm();
+  stageIndex = 0; allLogs = []; statusEl.textContent = '待機中';
+  startOverlay.classList.remove('hidden'); stageClearOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden'); rewardOverlay.classList.add('hidden');
+  found = miss = missed = combo = maxCombo = targetCount = 0; timeLeft = 50; updateHud();
+}
+
+el('startBtn').onclick = ()=>{ stageIndex = 0; allLogs = []; startStage(); };
+el('nextStageBtn').onclick = ()=>{ stageIndex++; startStage(); };
+document.querySelectorAll('.retryBtn').forEach(btn=>btn.onclick = resetGame);
+updateHud();
+</script>
+</body>
+</html>
